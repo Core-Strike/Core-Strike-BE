@@ -34,6 +34,7 @@ public class Alert {
     private String reason;
 
     // confused 발생 시점 기준 가장 가까운 강의 토픽 (LectureTopic에서 매칭)
+    @Column(columnDefinition = "TEXT")
     private String unclearTopic;
 
     // 이벤트 직후 2분 녹음 STT 원문
