@@ -1,6 +1,7 @@
 package com.iknow.controller;
 
 import com.iknow.dto.response.DashboardClassResponse;
+import com.iknow.dto.response.KeywordReportResponse;
 import com.iknow.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,5 +21,15 @@ public class DashboardController {
     @GetMapping("/classes")
     public ResponseEntity<List<DashboardClassResponse>> getDashboardClasses(@RequestParam LocalDate date) {
         return ResponseEntity.ok(dashboardService.getDashboardClasses(date));
+    }
+
+    @GetMapping("/keyword-report")
+    public ResponseEntity<KeywordReportResponse> getKeywordReport(
+            @RequestParam LocalDate date,
+            @RequestParam String keyword,
+            @RequestParam(required = false) String curriculum,
+            @RequestParam(required = false) String classId
+    ) {
+        return ResponseEntity.ok(dashboardService.getKeywordReport(date, keyword, curriculum, classId));
     }
 }

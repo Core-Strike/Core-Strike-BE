@@ -8,5 +8,6 @@ import java.util.List;
 public interface AlertKeywordRepository extends JpaRepository<AlertKeyword, Long> {
     List<AlertKeyword> findByAlertIdOrderByIdAsc(Long alertId);
     List<AlertKeyword> findByAlertIdIn(List<Long> alertIds);
+    List<AlertKeyword> findByAlertIdInAndKeyword(List<Long> alertIds, String keyword);
     void deleteByAlertId(Long alertId);
 }

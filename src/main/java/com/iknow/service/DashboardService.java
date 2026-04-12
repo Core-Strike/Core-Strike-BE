@@ -2,6 +2,7 @@ package com.iknow.service;
 
 import com.iknow.dto.response.AlertResponse;
 import com.iknow.dto.response.DashboardClassResponse;
+import com.iknow.dto.response.KeywordReportResponse;
 import com.iknow.entity.Alert;
 import com.iknow.entity.AlertKeyword;
 import com.iknow.entity.Session;
@@ -14,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -23,6 +26,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class DashboardService {
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     private final SessionRepository sessionRepository;
     private final AlertRepository alertRepository;
@@ -53,6 +57,78 @@ public class DashboardService {
         return alertsByClass.entrySet().stream()
                 .map(entry -> buildClassResponse(entry.getKey(), entry.getValue()))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public KeywordReportResponse getKeywordReport(LocalDate date, String keyword, String curriculum, String classId) {
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        if (normalizedKeyword.isBlank()) {
+            throw new IllegalArgumentException("keyword must not be blank");
+        }
+
+        FilteredAlertContext context = getFilteredAlertContext(date, curriculum, classId);
+        List<Long> alertIds = context.alerts().stream()
+                .map(Alert::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        if (alertIds.isEmpty()) {
+            return buildKeywordReport(date, normalizedKeyword, curriculum, classId, List.of());
+        }
+
+        Set<Long> matchedAlertIds = alertKeywordRepository.findByAlertIdInAndKeyword(alertIds, normalizedKeyword).stream()
+                .map(AlertKeyword::getAlertId)
+                .collect(Collectors.toSet());
+
+        List<Alert> matchedAlerts = context.alerts().stream()
+                .filter(alert -> matchedAlertIds.contains(alert.getId()))
+                .sorted(Comparator.comparing(Alert::getCapturedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+
+        return buildKeywordReport(date, normalizedKeyword, curriculum, classId, matchedAlerts);
+    }
+
+    private KeywordReportResponse buildKeywordReport(LocalDate date, String keyword, String curriculum, String classId, List<Alert> matchedAlerts) {
+        int avgConfusion = matchedAlerts.isEmpty()
+                ? 0
+                : (int) Math.round(matchedAlerts.stream()
+                        .mapToInt(this::calculateConfusionPercent)
+                        .average()
+                        .orElse(0.0));
+        int avgUnderstanding = Math.max(0, 100 - avgConfusion);
+        int reinforcementNeed = avgConfusion;
+
+        String reinforcementLevel = reinforcementNeed >= 70
+                ? "높음"
+                : reinforcementNeed >= 40
+                ? "보통"
+                : "낮음";
+
+        String report = matchedAlerts.isEmpty()
+                ? String.format("'%s' 키워드와 연결된 알림이 아직 없습니다.", keyword)
+                : String.format("'%s' 관련 알림은 %d건이며 평균 이해도는 %d%%입니다. 보충 필요도는 %s(%d%%)로 판단됩니다.",
+                keyword, matchedAlerts.size(), avgUnderstanding, reinforcementLevel, reinforcementNeed);
+
+        List<String> occurrenceTimes = matchedAlerts.stream()
+                .map(Alert::getCapturedAt)
+                .filter(Objects::nonNull)
+                .map(TIME_FORMATTER::format)
+                .distinct()
+                .limit(5)
+                .toList();
+
+        return KeywordReportResponse.builder()
+                .keyword(keyword)
+                .curriculum(curriculum)
+                .classId(classId)
+                .date(date.toString())
+                .alertCount(matchedAlerts.size())
+                .avgUnderstanding(avgUnderstanding)
+                .reinforcementNeed(reinforcementNeed)
+                .reinforcementLevel(reinforcementLevel)
+                .report(report)
+                .occurrenceTimes(occurrenceTimes)
+                .build();
     }
 
     private DashboardClassResponse buildClassResponse(String classId, List<Alert> alerts) {
@@ -101,5 +177,57 @@ public class DashboardService {
                 .topTopics(topTopics)
                 .recentAlerts(recentAlerts)
                 .build();
+    }
+
+    private FilteredAlertContext getFilteredAlertContext(LocalDate date, String curriculum, String classId) {
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay = date.plusDays(1).atStartOfDay();
+
+        List<Alert> alertsForDate = alertRepository.findByCapturedAtBetweenOrderByCapturedAtDesc(startOfDay, endOfDay);
+
+        Set<String> sessionIds = alertsForDate.stream()
+                .map(Alert::getSessionId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<String, Session> sessionBySessionId = sessionRepository.findAllBySessionIdIn(sessionIds).stream()
+                .collect(Collectors.toMap(Session::getSessionId, session -> session));
+
+        List<Alert> filteredAlerts = alertsForDate.stream()
+                .filter(alert -> matchesCurriculum(sessionBySessionId.get(alert.getSessionId()), curriculum))
+                .filter(alert -> matchesClassId(sessionBySessionId.get(alert.getSessionId()), classId))
+                .toList();
+
+        return new FilteredAlertContext(filteredAlerts, sessionBySessionId);
+    }
+
+    private boolean matchesCurriculum(Session session, String curriculum) {
+        if (curriculum == null || curriculum.isBlank()) {
+            return true;
+        }
+        if (session == null || session.getCurriculum() == null) {
+            return false;
+        }
+        return curriculum.equals(session.getCurriculum());
+    }
+
+    private boolean matchesClassId(Session session, String classId) {
+        if (classId == null || classId.isBlank() || "전체 반".equals(classId)) {
+            return true;
+        }
+        if (session == null || session.getClassId() == null) {
+            return false;
+        }
+        return classId.equals(session.getClassId());
+    }
+
+    private int calculateConfusionPercent(Alert alert) {
+        if (alert.getTotalStudentCount() != null && alert.getTotalStudentCount() > 0 && alert.getStudentCount() != null) {
+            return (int) Math.round((alert.getStudentCount() * 100.0) / alert.getTotalStudentCount());
+        }
+        return (int) Math.round((alert.getConfusedScore() != null ? alert.getConfusedScore() : 0.0) * 100);
+    }
+
+    private record FilteredAlertContext(List<Alert> alerts, Map<String, Session> sessionBySessionId) {
     }
 }
