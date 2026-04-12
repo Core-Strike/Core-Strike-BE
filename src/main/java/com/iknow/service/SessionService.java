@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -110,12 +111,17 @@ public class SessionService {
         return response;
     }
 
-    // 100000~999999 범위 랜덤 숫자, 중복이면 재생성
+    // 숫자 + 대문자 알파벳 8자리 랜덤, 중복이면 재생성
+    private static final String SESSION_ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final int SESSION_ID_LENGTH = 8;
+
     private String generateUniqueSessionId() {
         String sessionId;
         do {
-            int random = ThreadLocalRandom.current().nextInt(100000, 1000000);
-            sessionId = String.valueOf(random);
+            sessionId = ThreadLocalRandom.current()
+                    .ints(SESSION_ID_LENGTH, 0, SESSION_ID_CHARS.length())
+                    .mapToObj(i -> String.valueOf(SESSION_ID_CHARS.charAt(i)))
+                    .collect(Collectors.joining());
         } while (sessionRepository.existsBySessionId(sessionId));
         return sessionId;
     }

@@ -18,8 +18,8 @@ public class Session {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String sessionId;  // 6자리 숫자 문자열 (100000~999999)
+    @Column(nullable = false, unique = true, length = 8)
+    private String sessionId;  // 숫자 + 대문자 알파벳 8자리 (예: AB12CD34)
 
     private String classId;
 
