@@ -4,6 +4,7 @@ import com.iknow.dto.request.CreateSessionRequest;
 import com.iknow.dto.response.SessionResponse;
 import com.iknow.service.SessionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +25,12 @@ public class SessionController {
     @PatchMapping("/{sessionId}/end")
     public ResponseEntity<SessionResponse> endSession(@PathVariable String sessionId) {
         return ResponseEntity.ok(sessionService.endSession(sessionId));
+    }
+
+    @PostMapping("/{sessionId}/terminate")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void terminateSession(@PathVariable String sessionId) {
+        sessionService.terminateSessionIfExists(sessionId);
     }
 
     @GetMapping("/{sessionId}")

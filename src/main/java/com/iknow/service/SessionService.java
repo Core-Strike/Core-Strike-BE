@@ -40,11 +40,13 @@ public class SessionService {
     @Transactional
     public SessionResponse endSession(String sessionId) {
         Session session = findSessionOrThrow(sessionId);
-        session.setStatus(Session.SessionStatus.ENDED);
-        if (session.getEndedAt() == null) {
-            session.setEndedAt(LocalDateTime.now());
-        }
-        return SessionResponse.from(sessionRepository.save(session));
+        return terminateSession(session);
+    }
+
+    @Transactional
+    public void terminateSessionIfExists(String sessionId) {
+        sessionRepository.findBySessionId(sessionId)
+                .ifPresent(this::terminateSession);
     }
 
     @Transactional
@@ -83,6 +85,17 @@ public class SessionService {
                 session.setEndedAt(expiresAt);
             }
         }
+    }
+
+    private SessionResponse terminateSession(Session session) {
+        session.setStatus(Session.SessionStatus.ENDED);
+        if (session.getEndedAt() == null) {
+            session.setEndedAt(LocalDateTime.now());
+        }
+
+        SessionResponse response = SessionResponse.from(session);
+        sessionRepository.delete(session);
+        return response;
     }
 
     // 100000~999999 범위 랜덤 숫자, 중복이면 재생성
