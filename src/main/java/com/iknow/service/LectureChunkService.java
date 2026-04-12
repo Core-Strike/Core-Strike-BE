@@ -24,6 +24,8 @@ public class LectureChunkService {
 
         Alert alert = Alert.builder()
                 .sessionId(session.getSessionId())
+                .classId(session.getClassId())
+                .curriculum(session.getCurriculum())
                 .studentCount(request.getStudentCount() != null ? request.getStudentCount() : 1)
                 .totalStudentCount(request.getTotalStudentCount() != null ? request.getTotalStudentCount() : 1)
                 .capturedAt(request.getCapturedAt() != null ? request.getCapturedAt() : LocalDateTime.now())

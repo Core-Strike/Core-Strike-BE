@@ -12,6 +12,8 @@ import java.util.List;
 public class AlertResponse {
     private Long id;
     private String sessionId;
+    private String classId;
+    private String curriculum;
     private String studentId;
     private String studentName;
     private Integer studentCount;
@@ -29,6 +31,8 @@ public class AlertResponse {
         return AlertResponse.builder()
                 .id(alert.getId())
                 .sessionId(alert.getSessionId())
+                .classId(alert.getClassId())
+                .curriculum(alert.getCurriculum())
                 .studentId(alert.getStudentId())
                 .studentName(alert.getStudentName())
                 .studentCount(alert.getStudentCount())

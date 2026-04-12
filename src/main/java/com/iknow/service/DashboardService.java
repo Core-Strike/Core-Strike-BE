@@ -51,16 +51,24 @@ public class DashboardService {
         Map<String, Session> sessionBySessionId = sessionRepository.findAllBySessionIdIn(sessionIds)
                 .stream()
                 .collect(Collectors.toMap(Session::getSessionId, session -> session));
+        Map<String, SessionParticipant> participantSnapshotBySessionId = participantsForDate.stream()
+                .filter(participant -> participant.getSessionId() != null)
+                .collect(Collectors.toMap(
+                        SessionParticipant::getSessionId,
+                        participant -> participant,
+                        (first, second) -> first
+                ));
 
         Map<ClassGroupingKey, List<Alert>> alertsByClass = alertsForDate.stream()
                 .collect(Collectors.groupingBy(alert -> {
                     Session session = sessionBySessionId.get(alert.getSessionId());
+                    SessionParticipant participant = participantSnapshotBySessionId.get(alert.getSessionId());
                     String curriculum = session != null && session.getCurriculum() != null
                             ? session.getCurriculum()
-                            : "";
+                            : (alert.getCurriculum() != null ? alert.getCurriculum() : (participant != null ? participant.getCurriculum() : ""));
                     String classId = session != null && session.getClassId() != null
                             ? session.getClassId()
-                            : "unknown";
+                            : (alert.getClassId() != null ? alert.getClassId() : (participant != null ? participant.getClassId() : "unknown"));
                     return new ClassGroupingKey(curriculum, classId);
                 }));
 
@@ -205,33 +213,62 @@ public class DashboardService {
 
         Map<String, Session> sessionBySessionId = sessionRepository.findAllBySessionIdIn(sessionIds).stream()
                 .collect(Collectors.toMap(Session::getSessionId, session -> session));
+        Map<String, SessionParticipant> participantSnapshotBySessionId = sessionParticipantRepository.findByJoinedAtBetween(startOfDay, endOfDay).stream()
+                .filter(participant -> participant.getSessionId() != null)
+                .collect(Collectors.toMap(
+                        SessionParticipant::getSessionId,
+                        participant -> participant,
+                        (first, second) -> first
+                ));
 
         List<Alert> filteredAlerts = alertsForDate.stream()
-                .filter(alert -> matchesCurriculum(sessionBySessionId.get(alert.getSessionId()), curriculum))
-                .filter(alert -> matchesClassId(sessionBySessionId.get(alert.getSessionId()), classId))
+                .filter(alert -> matchesCurriculum(sessionBySessionId.get(alert.getSessionId()), alert, participantSnapshotBySessionId.get(alert.getSessionId()), curriculum))
+                .filter(alert -> matchesClassId(sessionBySessionId.get(alert.getSessionId()), alert, participantSnapshotBySessionId.get(alert.getSessionId()), classId))
                 .toList();
 
         return new FilteredAlertContext(filteredAlerts, sessionBySessionId);
     }
 
     private boolean matchesCurriculum(Session session, String curriculum) {
+        return matchesCurriculum(session, null, null, curriculum);
+    }
+
+    private boolean matchesCurriculum(Session session, Alert alert, String curriculum) {
+        return matchesCurriculum(session, alert, null, curriculum);
+    }
+
+    private boolean matchesCurriculum(Session session, Alert alert, SessionParticipant participant, String curriculum) {
         if (curriculum == null || curriculum.isBlank()) {
             return true;
         }
-        if (session == null || session.getCurriculum() == null) {
-            return false;
+        if (session != null && session.getCurriculum() != null) {
+            return curriculum.equals(session.getCurriculum());
         }
-        return curriculum.equals(session.getCurriculum());
+        if (alert != null && curriculum.equals(alert.getCurriculum())) {
+            return true;
+        }
+        return participant != null && curriculum.equals(participant.getCurriculum());
     }
 
     private boolean matchesClassId(Session session, String classId) {
+        return matchesClassId(session, null, null, classId);
+    }
+
+    private boolean matchesClassId(Session session, Alert alert, String classId) {
+        return matchesClassId(session, alert, null, classId);
+    }
+
+    private boolean matchesClassId(Session session, Alert alert, SessionParticipant participant, String classId) {
         if (classId == null || classId.isBlank() || "전체 반".equals(classId)) {
             return true;
         }
-        if (session == null || session.getClassId() == null) {
-            return false;
+        if (session != null && session.getClassId() != null) {
+            return classId.equals(session.getClassId());
         }
-        return classId.equals(session.getClassId());
+        if (alert != null && classId.equals(alert.getClassId())) {
+            return true;
+        }
+        return participant != null && classId.equals(participant.getClassId());
     }
 
     private int calculateConfusionPercent(Alert alert) {

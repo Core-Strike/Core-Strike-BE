@@ -21,6 +21,10 @@ public class Alert {
     @Column(nullable = false)
     private String sessionId;
 
+    private String classId;
+
+    private String curriculum;
+
     private String studentId;
 
     private String studentName;    // 수강생 이름
