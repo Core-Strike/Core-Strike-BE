@@ -25,4 +25,9 @@ public class SessionController {
     public ResponseEntity<SessionResponse> endSession(@PathVariable String sessionId) {
         return ResponseEntity.ok(sessionService.endSession(sessionId));
     }
+
+    @GetMapping("/{sessionId}")
+    public ResponseEntity<SessionResponse> getSession(@PathVariable String sessionId) {
+        return ResponseEntity.ok(sessionService.getSession(sessionId));
+    }
 }

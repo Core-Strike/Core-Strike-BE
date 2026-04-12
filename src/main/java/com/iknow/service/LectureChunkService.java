@@ -3,6 +3,7 @@ package com.iknow.service;
 import com.iknow.dto.request.LectureChunkRequest;
 import com.iknow.dto.response.AlertResponse;
 import com.iknow.entity.Alert;
+import com.iknow.entity.Session;
 import com.iknow.repository.AlertRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,11 +16,14 @@ import java.time.LocalDateTime;
 public class LectureChunkService {
 
     private final AlertRepository alertRepository;
+    private final SessionService sessionService;
 
     @Transactional
     public AlertResponse saveLectureChunk(LectureChunkRequest request) {
+        Session session = sessionService.getActiveSessionOrThrow(request.getSessionId());
+
         Alert alert = Alert.builder()
-                .sessionId(request.getSessionId())
+                .sessionId(session.getSessionId())
                 .studentCount(request.getStudentCount() != null ? request.getStudentCount() : 1)
                 .totalStudentCount(request.getTotalStudentCount() != null ? request.getTotalStudentCount() : 1)
                 .capturedAt(request.getCapturedAt() != null ? request.getCapturedAt() : LocalDateTime.now())

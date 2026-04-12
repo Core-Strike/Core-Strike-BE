@@ -3,7 +3,6 @@ package com.iknow.service;
 import com.iknow.dto.request.ConfusedEventRequest;
 import com.iknow.dto.response.AlertWebSocketPayload;
 import com.iknow.entity.Session;
-import com.iknow.repository.SessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -15,13 +14,12 @@ import java.time.format.DateTimeFormatter;
 @RequiredArgsConstructor
 public class ConfusedEventService {
 
-    private final SessionRepository sessionRepository;
+    private final SessionService sessionService;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional(readOnly = true)
     public void handleConfusedEvent(ConfusedEventRequest request) {
-        Session session = sessionRepository.findBySessionId(request.getSessionId())
-                .orElseThrow(() -> new RuntimeException("Session not found: " + request.getSessionId()));
+        Session session = sessionService.getActiveSessionOrThrow(request.getSessionId());
 
         AlertWebSocketPayload payload = AlertWebSocketPayload.builder()
                 .sessionId(request.getSessionId())
