@@ -48,10 +48,16 @@ public class DashboardService {
                 .stream()
                 .collect(Collectors.toMap(Session::getSessionId, session -> session));
 
-        Map<String, List<Alert>> alertsByClass = alertsForDate.stream()
+        Map<ClassGroupingKey, List<Alert>> alertsByClass = alertsForDate.stream()
                 .collect(Collectors.groupingBy(alert -> {
                     Session session = sessionBySessionId.get(alert.getSessionId());
-                    return session != null && session.getClassId() != null ? session.getClassId() : "unknown";
+                    String curriculum = session != null && session.getCurriculum() != null
+                            ? session.getCurriculum()
+                            : "";
+                    String classId = session != null && session.getClassId() != null
+                            ? session.getClassId()
+                            : "unknown";
+                    return new ClassGroupingKey(curriculum, classId);
                 }));
 
         return alertsByClass.entrySet().stream()
@@ -131,7 +137,7 @@ public class DashboardService {
                 .build();
     }
 
-    private DashboardClassResponse buildClassResponse(String classId, List<Alert> alerts) {
+    private DashboardClassResponse buildClassResponse(ClassGroupingKey key, List<Alert> alerts) {
         List<Long> alertIds = alerts.stream()
                 .map(Alert::getId)
                 .filter(Objects::nonNull)
@@ -170,7 +176,8 @@ public class DashboardService {
                 .collect(Collectors.toList());
 
         return DashboardClassResponse.builder()
-                .classId(classId)
+                .curriculum(key.curriculum())
+                .classId(key.classId())
                 .alertCount(alerts.size())
                 .participantCount(participantCount)
                 .avgConfusedScore(avgScore)
@@ -229,5 +236,8 @@ public class DashboardService {
     }
 
     private record FilteredAlertContext(List<Alert> alerts, Map<String, Session> sessionBySessionId) {
+    }
+
+    private record ClassGroupingKey(String curriculum, String classId) {
     }
 }
