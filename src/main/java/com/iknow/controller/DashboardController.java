@@ -1,7 +1,10 @@
 package com.iknow.controller;
 
+import com.iknow.dto.request.DashboardAiCoachingRequest;
+import com.iknow.dto.response.DashboardAiCoachingDataResponse;
 import com.iknow.dto.response.DashboardClassResponse;
 import com.iknow.dto.response.KeywordReportResponse;
+import com.iknow.service.DashboardAiCoachingService;
 import com.iknow.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +19,7 @@ import java.util.List;
 public class DashboardController {
 
     private final DashboardService dashboardService;
+    private final DashboardAiCoachingService dashboardAiCoachingService;
 
     // GET /api/dashboard/classes — 반별 통계 (대시보드용)
     @GetMapping("/classes")
@@ -31,5 +35,10 @@ public class DashboardController {
             @RequestParam(required = false) String classId
     ) {
         return ResponseEntity.ok(dashboardService.getKeywordReport(date, keyword, curriculum, classId));
+    }
+
+    @PostMapping("/ai-coaching-data")
+    public ResponseEntity<DashboardAiCoachingDataResponse> getAiCoachingData(@RequestBody DashboardAiCoachingRequest request) {
+        return ResponseEntity.ok(dashboardAiCoachingService.getCoachingData(request));
     }
 }
