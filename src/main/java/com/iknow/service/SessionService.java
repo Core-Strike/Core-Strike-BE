@@ -56,8 +56,8 @@ public class SessionService {
 
     @Transactional
     public void terminateSessionIfExists(String sessionId) {
-        sessionRepository.findBySessionId(sessionId)
-                .ifPresent(this::terminateSession);
+        sessionParticipantService.leaveAllActiveParticipants(sessionId);
+        sessionRepository.deleteBySessionIdIfExists(sessionId);
     }
 
     @Transactional
@@ -108,7 +108,7 @@ public class SessionService {
         sessionParticipantService.leaveAllActiveParticipants(session.getSessionId());
 
         SessionResponse response = SessionResponse.from(session, 0L);
-        sessionRepository.delete(session);
+        sessionRepository.deleteBySessionIdIfExists(session.getSessionId());
         return response;
     }
 
