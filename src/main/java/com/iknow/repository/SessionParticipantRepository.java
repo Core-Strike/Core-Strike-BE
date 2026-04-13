@@ -11,4 +11,5 @@ public interface SessionParticipantRepository extends JpaRepository<SessionParti
     Optional<SessionParticipant> findTopBySessionIdAndStudentIdOrderByJoinedAtDesc(String sessionId, String studentId);
     List<SessionParticipant> findByJoinedAtBetween(LocalDateTime start, LocalDateTime end);
     List<SessionParticipant> findBySessionIdAndActiveTrue(String sessionId);
+    long countBySessionIdAndActiveTrue(String sessionId);
 }

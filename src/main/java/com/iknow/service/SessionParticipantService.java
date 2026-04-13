@@ -72,6 +72,11 @@ public class SessionParticipantService {
         });
     }
 
+    @Transactional(readOnly = true)
+    public long countActiveParticipants(String sessionId) {
+        return sessionParticipantRepository.countBySessionIdAndActiveTrue(sessionId);
+    }
+
     private String normalizeRequired(String value, String message) {
         String normalized = normalizeOptional(value);
         if (normalized.isBlank()) {

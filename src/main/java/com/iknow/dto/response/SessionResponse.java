@@ -16,8 +16,13 @@ public class SessionResponse {
     private String status;
     private LocalDateTime startedAt;
     private LocalDateTime endedAt;
+    private Long activeParticipantCount;
 
     public static SessionResponse from(Session session) {
+        return from(session, 0L);
+    }
+
+    public static SessionResponse from(Session session, long activeParticipantCount) {
         return SessionResponse.builder()
                 .sessionId(session.getSessionId())
                 .classId(session.getClassId())
@@ -26,6 +31,7 @@ public class SessionResponse {
                 .status(session.getStatus().name())
                 .startedAt(session.getStartedAt())
                 .endedAt(session.getEndedAt())
+                .activeParticipantCount(activeParticipantCount)
                 .build();
     }
 }

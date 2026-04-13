@@ -45,7 +45,7 @@ public class SessionService {
                 .status(Session.SessionStatus.ACTIVE)
                 .build();
 
-        return SessionResponse.from(sessionRepository.save(session));
+        return SessionResponse.from(sessionRepository.save(session), 0L);
     }
 
     @Transactional
@@ -64,7 +64,8 @@ public class SessionService {
     public SessionResponse getSession(String sessionId) {
         Session session = findSessionOrThrow(sessionId);
         expireSessionIfNeeded(session);
-        return SessionResponse.from(session);
+        long activeParticipantCount = sessionParticipantService.countActiveParticipants(sessionId);
+        return SessionResponse.from(session, activeParticipantCount);
     }
 
     @Transactional
@@ -106,7 +107,7 @@ public class SessionService {
 
         sessionParticipantService.leaveAllActiveParticipants(session.getSessionId());
 
-        SessionResponse response = SessionResponse.from(session);
+        SessionResponse response = SessionResponse.from(session, 0L);
         sessionRepository.delete(session);
         return response;
     }
