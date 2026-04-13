@@ -8,11 +8,12 @@ import com.iknow.repository.SessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -21,6 +22,8 @@ import java.util.stream.Collectors;
 public class SessionService {
 
     private static final Duration SESSION_MAX_DURATION = Duration.ofDays(1);
+    private static final String SESSION_ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final int SESSION_ID_LENGTH = 8;
 
     private final CurriculumRepository curriculumRepository;
     private final SessionParticipantService sessionParticipantService;
@@ -29,7 +32,8 @@ public class SessionService {
     @Transactional
     public SessionResponse createSession(CreateSessionRequest request) {
         String sessionId = generateUniqueSessionId();
-        String curriculum = request.getCurriculum() == null ? "" : request.getCurriculum().trim();
+        String curriculum = normalizeOptional(request.getCurriculum());
+        String classId = normalizeOptional(request.getClassId());
         if (curriculum.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Curriculum is required");
         }
@@ -37,9 +41,11 @@ public class SessionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown curriculum: " + curriculum);
         }
 
+        terminateExistingSessionsForScope(curriculum, classId);
+
         Session session = Session.builder()
                 .sessionId(sessionId)
-                .classId(request.getClassId())
+                .classId(classId)
                 .thresholdPct(request.getThresholdPct() != null ? request.getThresholdPct() : 50)
                 .curriculum(curriculum)
                 .status(Session.SessionStatus.ACTIVE)
@@ -112,9 +118,19 @@ public class SessionService {
         return response;
     }
 
-    // 숫자 + 대문자 알파벳 8자리 랜덤, 중복이면 재생성
-    private static final String SESSION_ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private static final int SESSION_ID_LENGTH = 8;
+    private void terminateExistingSessionsForScope(String curriculum, String classId) {
+        List<Session> existingSessions = sessionRepository.findAllByStatusAndCurriculumAndClassId(
+                Session.SessionStatus.ACTIVE,
+                curriculum,
+                classId
+        );
+
+        existingSessions.forEach(this::terminateSession);
+    }
+
+    private String normalizeOptional(String value) {
+        return value == null ? "" : value.trim();
+    }
 
     private String generateUniqueSessionId() {
         String sessionId;

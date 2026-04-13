@@ -15,6 +15,12 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
 
     List<Session> findAllBySessionIdIn(Collection<String> sessionIds);
 
+    List<Session> findAllByStatusAndCurriculumAndClassId(
+            Session.SessionStatus status,
+            String curriculum,
+            String classId
+    );
+
     boolean existsBySessionId(String sessionId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
