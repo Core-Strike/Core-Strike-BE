@@ -3,14 +3,6 @@
 실시간 학습 신호, 강의 요약, 대시보드 집계를 담당하는 `iKnow` 백엔드입니다.  
 학생 클라이언트에서 발생한 학습 신호와 강의 텍스트를 저장하고, 강사 대시보드에 실시간 알림과 수업 단위 분석 데이터를 제공합니다.
 
-## 핵심 업데이트
-
-- `GET /api/sessions/{sessionId}` 응답에 `activeParticipantCount`가 추가되었습니다.
-- `POST /api/understanding-difficulty-trends` API가 추가되었습니다.
-- `GET /api/dashboard/classes` 응답에 시간대별 `difficultyTrend`가 포함됩니다.
-- 강의 요약 키워드 정규화 규칙이 변경되어, 중복 제거 후 최대 5개까지 저장합니다.
-- 기존 SVG 다이어그램은 모두 Mermaid 다이어그램으로 교체했습니다.
-
 ## 기술 스택
 
 | 구분 | 내용 |
