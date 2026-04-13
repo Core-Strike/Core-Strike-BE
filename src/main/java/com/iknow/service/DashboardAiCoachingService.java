@@ -5,13 +5,16 @@ import com.iknow.dto.response.DashboardAiCoachingDataResponse;
 import com.iknow.dto.response.DashboardAiRecentAlertItemResponse;
 import com.iknow.dto.response.DashboardAiSignalItemResponse;
 import com.iknow.dto.response.DashboardClassResponse;
+import com.iknow.dto.response.DifficultyTrendPointResponse;
 import com.iknow.dto.response.SignalBreakdownResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -35,9 +38,16 @@ public class DashboardAiCoachingService {
     private DashboardAiCoachingDataResponse buildPayload(DashboardAiCoachingRequest request, List<DashboardClassResponse> items) {
         int totalAlerts = items.stream().mapToInt(item -> Math.toIntExact(item.getAlertCount())).sum();
         int totalStudents = items.stream().mapToInt(item -> Math.toIntExact(item.getParticipantCount())).sum();
-        int avgConfusion = items.isEmpty()
-                ? 0
-                : (int) Math.round(items.stream().mapToDouble(DashboardClassResponse::getAvgConfusedScore).average().orElse(0.0) * 100);
+        List<DifficultyTrendPointResponse> difficultyTrend = aggregateDifficultyTrend(items);
+        long totalTrendSamples = difficultyTrend.stream()
+                .mapToLong(DifficultyTrendPointResponse::getSampleCount)
+                .sum();
+        double totalTrendScore = difficultyTrend.stream()
+                .mapToDouble(point -> point.getAvgDifficultyScore() * point.getSampleCount())
+                .sum();
+        int avgConfusion = totalTrendSamples > 0
+                ? (int) Math.round(totalTrendScore / totalTrendSamples)
+                : 0;
 
         List<DashboardAiSignalItemResponse> signals = items.stream()
                 .flatMap(item -> item.getSignalBreakdown().stream())
@@ -94,11 +104,58 @@ public class DashboardAiCoachingService {
                 .participantCount(totalStudents)
                 .alertCount(totalAlerts)
                 .avgConfusionPercent(avgConfusion)
+                .difficultyTrend(difficultyTrend)
                 .topKeywords(keywords.stream().limit(5).toList())
                 .topTopics(topics.stream().limit(5).toList())
                 .signalBreakdown(signals)
                 .recentAlerts(recentAlerts)
                 .build();
+    }
+
+    private List<DifficultyTrendPointResponse> aggregateDifficultyTrend(List<DashboardClassResponse> items) {
+        Map<String, TrendAccumulator> accumulatorByTime = new HashMap<>();
+
+        items.stream()
+                .flatMap(item -> item.getDifficultyTrend().stream())
+                .forEach(point -> {
+                    if (point.getTime() == null || point.getTime().isBlank()) {
+                        return;
+                    }
+
+                    TrendAccumulator accumulator = accumulatorByTime.computeIfAbsent(
+                            point.getTime(),
+                            ignored -> new TrendAccumulator()
+                    );
+                    accumulator.add(point.getAvgDifficultyScore(), point.getSampleCount());
+                });
+
+        return accumulatorByTime.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> DifficultyTrendPointResponse.builder()
+                        .time(entry.getKey())
+                        .avgDifficultyScore(entry.getValue().average())
+                        .sampleCount(entry.getValue().count())
+                        .build())
+                .toList();
+    }
+
+    private static final class TrendAccumulator {
+        private double totalScore;
+        private long count;
+
+        void add(double score, long sampleCount) {
+            long normalizedSampleCount = sampleCount > 0 ? sampleCount : 1;
+            totalScore += score * normalizedSampleCount;
+            count += normalizedSampleCount;
+        }
+
+        double average() {
+            return count > 0 ? totalScore / count : 0.0;
+        }
+
+        long count() {
+            return count;
+        }
     }
 
     private int calculateConfusionPercent(com.iknow.dto.response.AlertResponse alert) {

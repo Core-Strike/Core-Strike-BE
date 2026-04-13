@@ -21,6 +21,7 @@ public class DashboardAiCoachingDataResponse {
     private int participantCount;
     private int alertCount;
     private int avgConfusionPercent;
+    private List<DifficultyTrendPointResponse> difficultyTrend;
     private List<String> topKeywords;
     private List<String> topTopics;
     private List<DashboardAiSignalItemResponse> signalBreakdown;
